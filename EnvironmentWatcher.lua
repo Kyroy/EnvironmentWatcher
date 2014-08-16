@@ -75,8 +75,7 @@ function EnvironmentWatcher:new(o)
 	o.trackedCasts = {}
 	o.watched = {}
 	o.settings = {
-		notificationsX = 10,
-		notificationsY = 10
+		anchorOffsets = nil
 	}
 	o.saveData = nil
 
@@ -120,11 +119,17 @@ function EnvironmentWatcher:OnDocLoaded()
 			return
 		end
 		
+		self.wndMoveWatchers = Apollo.LoadForm(self.xmlDoc, "NotificationMoveForm", nil, self)
+		if self.wndMoveWatchers == nil then
+			Apollo.AddAddonErrorText(self, "Could not load the move-watchers window for some reason.")
+			return
+		end
+		
 		-- item list
 		self.wndItemList = self.wndMain:FindChild("ItemList")
 	    self.wndMain:Show(false, true)
-		self.wndNotification:Show(false, true)
-		self.wndNotification:Invoke()
+		self.wndNotification:Show(true, true)
+		self.wndMoveWatchers:Show(false, true)
 
 		-- if the xmlDoc is no longer needed, you should set it to nil
 		-- self.xmlDoc = nil
@@ -158,6 +163,10 @@ function EnvironmentWatcher:OnDocLoaded()
 			end
 	
 			self.settings = self.saveData.settings
+			if self.settings.anchorOffsets then
+				self.wndMoveWatchers:SetAnchorOffsets(unpack(self.settings.anchorOffsets))
+				self.wndNotification:SetAnchorOffsets(unpack(self.settings.anchorOffsets))
+			end
 		end
 	end
 end
@@ -420,6 +429,7 @@ function EnvironmentWatcher:ItemListAddWatcher(trackable)
 end
 
 function EnvironmentWatcher:OnRemoveWatcherButton( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
 	-- 
 	local delWnd = self.wndSelectedListItem:GetData()
 	if delWnd.type == trackableType["Buff"] then
@@ -446,6 +456,7 @@ function EnvironmentWatcher:OnRemoveWatcherButton( wndHandler, wndControl, eMous
 end
 
 function EnvironmentWatcher:OnSoundChooserPressed( wndHandler, wndControl, eMouseButton, nLastRelativeMouseX, nLastRelativeMouseY )
+	if not self.wndSelectedListItem then return end
 	-- make sure the wndControl is valid
     if wndHandler ~= wndControl then
         return
@@ -462,11 +473,13 @@ function EnvironmentWatcher:OnSoundChooserPressed( wndHandler, wndControl, eMous
 end
 
 function EnvironmentWatcher:OnPrintNameChanged( wndHandler, wndControl, strText )
+	if not self.wndSelectedListItem then return end
 	self.wndSelectedListItem:FindChild("Text"):SetText(strText)
 	self.wndSelectedListItem:GetData().printName = strText
 end
 
 function EnvironmentWatcher:OnNameChanged( wndHandler, wndControl, strText )
+	if not self.wndSelectedListItem then return end
 	local trackable = self.wndSelectedListItem:GetData()
 	local relTable
 	if trackable .type == trackableType["Buff"] then
@@ -489,6 +502,7 @@ function EnvironmentWatcher:OnNameChanged( wndHandler, wndControl, strText )
 end
 
 function EnvironmentWatcher:OnChatNameChanged( wndHandler, wndControl, strText )
+	if not self.wndSelectedListItem then return end
 	if strText == "" then
 		self.wndSelectedListItem:GetData().toChat = nil
 	else
@@ -497,6 +511,7 @@ function EnvironmentWatcher:OnChatNameChanged( wndHandler, wndControl, strText )
 end
 
 function EnvironmentWatcher:OnBuffChecked( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
 	local trackable = self.wndSelectedListItem:GetData()
 	local relTable
 	if trackable .type == trackableType["Buff"] then
@@ -520,6 +535,7 @@ function EnvironmentWatcher:OnBuffChecked( wndHandler, wndControl, eMouseButton 
 end
 
 function EnvironmentWatcher:OnDebuffChecked( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
 	local trackable = self.wndSelectedListItem:GetData()
 	local relTable
 	if trackable .type == trackableType["Buff"] then
@@ -543,6 +559,7 @@ function EnvironmentWatcher:OnDebuffChecked( wndHandler, wndControl, eMouseButto
 end
 
 function EnvironmentWatcher:OnCastChecked( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
 	local trackable = self.wndSelectedListItem:GetData()
 	local relTable
 	if trackable .type == trackableType["Buff"] then
@@ -563,6 +580,14 @@ function EnvironmentWatcher:OnCastChecked( wndHandler, wndControl, eMouseButton 
 		return
 	end
 	self:AddTracked(self.trackedCasts, trackable)
+end
+
+function EnvironmentWatcher:OnMoveWatchersCheck( wndHandler, wndControl, eMouseButton )
+	self.wndMoveWatchers:Invoke()
+end
+
+function EnvironmentWatcher:OnMoveMatchersUncheck( wndHandler, wndControl, eMouseButton )
+	self.wndMoveWatchers:Close()
 end
 
 -----------------------------------------------------------------------------------------------
@@ -615,6 +640,15 @@ function EnvironmentWatcher:OnRestore(eLevel, tData)
 	end
 end
 
+
+---------------------------------------------------------------------------------------------------
+-- NotificationMoveForm Functions
+---------------------------------------------------------------------------------------------------
+
+function EnvironmentWatcher:OnMoveWatchers( wndHandler, wndControl, nOldLeft, nOldTop, nOldRight, nOldBottom )
+	self.settings.anchorOffsets = {self.wndMoveWatchers:GetAnchorOffsets()}
+	self.wndNotification:SetAnchorOffsets(unpack(self.settings.anchorOffsets))
+end
 
 -----------------------------------------------------------------------------------------------
 -- EnvironmentWatcher Instance
