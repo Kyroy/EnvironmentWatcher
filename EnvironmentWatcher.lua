@@ -182,17 +182,7 @@ function EnvironmentWatcher:OnTimer()
 					for k, v in pairs(trackTable) do
 						if not v.nextNotification or os.difftime(v.nextNotification , os.clock()) <= 0 then
 							if v.toChat then
-								local message = unit:GetName() .. " has buff: " .. v.name
-								if chats[v.toChat] == ChatSystemLib.ChatChannel_Debug then
-									ChatSystemLib.PostOnChannel(chats[v.toChat], message, "")
-								else
-									for idx, channel in pairs(ChatSystemLib.GetChannels()) do
-										if channel:GetType() == chats[v.toChat] then
-											channel:Send(message)
-											break
-										end
-									end
-								end
+								self:SendChatMessage(trackable, unit:GetName() .. " has buff " .. v.name)
 							end
 							if v.sound and v.sound ~= "none" then
 								Sound.Play(v.sound)
@@ -209,7 +199,7 @@ function EnvironmentWatcher:OnTimer()
 					for k, v in pairs(trackTable) do
 						if not v.nextNotification or os.difftime(v.nextNotification , os.clock()) <= 0 then
 							if v.toChat then
-								ChatSystemLib.PostOnChannel(chats[v.toChat], unit:GetName() .. " has debuff: " .. v.name, "")
+								self:SendChatMessage(trackable, unit:GetName() .. " has debuff " .. v.name)
 							end
 							if v.sound and v.sound ~= "none" then
 								Sound.Play(v.sound)
@@ -229,7 +219,7 @@ function EnvironmentWatcher:OnTimer()
 				for k, v in pairs(trackTable) do
 					if not v.nextNotification or os.difftime(v.nextNotification , os.clock()) <= 0 then
 						if v.toChat then
-							ChatSystemLib.PostOnChannel(chats[v.toChat], unit:GetName() .. " is casting: " .. v.name, "")
+							self:SendChatMessage(trackable, unit:GetName() .. " is casting " .. v.name)
 						end
 						if v.sound then
 							Sound.Play(v.sound)
@@ -240,6 +230,20 @@ function EnvironmentWatcher:OnTimer()
 			end
 		end
 	end
+end
+
+function EnvironmentWatcher:SendChatMessage(trackable, message)
+	if chats[trackable.toChat] == ChatSystemLib.ChatChannel_Debug then
+		ChatSystemLib.PostOnChannel(chats[trackable.toChat], message, "")
+	else
+		for idx, channel in pairs(ChatSystemLib.GetChannels()) do
+			if channel:GetType() == chats[trackable.toChat] then
+				channel:Send(message)
+				break
+			end
+		end
+	end
+
 end
 
 function EnvironmentWatcher:OnEnteredCombat(unitChanged,bInCombat)
@@ -367,7 +371,6 @@ function EnvironmentWatcher:OnSoundChooserPressed( wndHandler, wndControl, eMous
         return
     end
 
-	Print(wndHandler:GetText())
 	wndHandler:GetParent():FindChild(soundsLookup[self.wndSelectedListItem:GetData().sound] or "none"):SetTextColor(kcrNormalText)
 	wndHandler:SetTextColor(kcrSelectedText)
 	if wndHandler:GetText() == "none" then
