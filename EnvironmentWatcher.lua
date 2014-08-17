@@ -202,7 +202,7 @@ function EnvironmentWatcher:OnTimer()
 								self.wndNotification:ArrangeChildrenVert()
 							end
 							v.notificationItem[unitName]:FindChild("Icon"):FindChild("ProgressBar"):SetProgress(buff.fTimeRemaining)
-							v.notificationItem[unitName]:FindChild("Icon"):FindChild("IconText"):SetText(tonumber(string.format("%.2f", buff.fTimeRemaining)))
+							v.notificationItem[unitName]:FindChild("Icon"):FindChild("IconText"):SetText(tonumber(string.format("%.0f", buff.fTimeRemaining)))
 						end
 						if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
 							if v.toChat then
@@ -230,7 +230,7 @@ function EnvironmentWatcher:OnTimer()
 								self.wndNotification:ArrangeChildrenVert()
 							end
 							v.notificationItem[unitName]:FindChild("Icon"):FindChild("ProgressBar"):SetProgress(debuff.fTimeRemaining)
-							v.notificationItem[unitName]:FindChild("Icon"):FindChild("IconText"):SetText(tonumber(string.format("%.2f", debuff.fTimeRemaining)))
+							v.notificationItem[unitName]:FindChild("Icon"):FindChild("IconText"):SetText(tonumber(string.format("%.0f", debuff.fTimeRemaining)))
 						end
 						if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
 							if v.toChat then
@@ -261,7 +261,7 @@ function EnvironmentWatcher:OnTimer()
 							self.wndNotification:ArrangeChildrenVert()
 						end
 						v.notificationItem[unitName]:FindChild("Icon"):FindChild("ProgressBar"):SetProgress(unit:GetCastElapsed())
-						v.notificationItem[unitName]:FindChild("Icon"):FindChild("IconText"):SetText(tonumber(string.format("%.2f", unit:GetCastElapsed()/1000.0)))
+						v.notificationItem[unitName]:FindChild("Icon"):FindChild("IconText"):SetText(tonumber(string.format("%.0f", unit:GetCastElapsed()/1000.0)))
 					end
 					if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
 						if v.toChat then
