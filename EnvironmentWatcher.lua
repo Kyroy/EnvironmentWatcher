@@ -199,7 +199,11 @@ function EnvironmentWatcher:OnTimer()
 						end
 						if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
 							if v.toChat then
-								self:SendChatMessage(v, unitName .. " has buff " .. v.name)
+								local addMsg = ""
+								if v.chatShowId then
+									addMsg = " (id=" .. buff.splEffect:GetBaseSpellId() .. ")"
+								end
+								self:SendChatMessage(v, unitName .. " has buff " .. v.name .. addMsg)
 							end
 							if v.sound and v.sound ~= "none" then
 								Sound.Play(v.sound)
@@ -219,7 +223,11 @@ function EnvironmentWatcher:OnTimer()
 						end
 						if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
 							if v.toChat then
-								self:SendChatMessage(v, unitName .. " has debuff " .. v.name)
+								local addMsg = ""
+								if v.chatShowId then
+									addMsg = " (id=" .. debuff.splEffect:GetBaseSpellId() .. ")"
+								end
+								self:SendChatMessage(v, unitName .. " has debuff " .. v.name .. addMsg)
 							end
 							if v.sound and v.sound ~= "none" then
 								Sound.Play(v.sound)
@@ -344,6 +352,7 @@ function EnvironmentWatcher:LoadTrackable(t)
 	optionForm:FindChild("TypeName"):SetText(t.name or "##ERROR##")
 	
 	optionForm:FindChild("ChatNameContainer"):FindChild("ChatName"):SetText(t.toChat or "")
+	optionForm:FindChild("ChatNameContainer"):FindChild("IdCheckButton"):SetCheck(t.chatShowId)
 	
 	for k,v in pairs(optionForm:FindChild("SoundContainer"):FindChild("SoundChooser"):GetChildren()) do
 		if v:GetText() == (soundsLookup[t.sound] or "none" )then
@@ -352,6 +361,8 @@ function EnvironmentWatcher:LoadTrackable(t)
 			v:SetTextColor(kcrNormalText)
 		end
 	end
+	
+	optionForm:FindChild("IdContainer"):FindChild("IdName"):SetText(t.trackId or "")
 end
 
 function EnvironmentWatcher:OnCloseButton()
@@ -363,7 +374,11 @@ function EnvironmentWatcher:OnAddWatcherButton( wndHandler, wndControl, eMouseBu
 		printName = "",
 		type = trackableType["Buff"],
 		name = "",
+		trackId = nil,
+		-- Chat
 		toChat = "",
+		chatShowId = false,
+		--
 		timeShow = false,
 		-- Sound
 		sound = "none",
@@ -558,6 +573,26 @@ end
 
 function EnvironmentWatcher:OnMoveMatchersUncheck( wndHandler, wndControl, eMouseButton )
 	self.wndMoveWatchers:Close()
+end
+
+function EnvironmentWatcher:OnIdCheckButtonCheck( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
+	self.wndSelectedListItem:GetData().chatShowId = true
+end
+
+function EnvironmentWatcher:OnIdCheckButtonUncheck( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
+	self.wndSelectedListItem:GetData().chatShowId = false
+end
+
+function EnvironmentWatcher:OnIdChanged( wndHandler, wndControl, strText )
+	if not self.wndSelectedListItem then return end
+	if strText == "" then
+		self.wndSelectedListItem:GetData().trackId = nil
+	else
+		self.wndSelectedListItem:GetData().trackId = strText
+	end
+
 end
 
 -----------------------------------------------------------------------------------------------
