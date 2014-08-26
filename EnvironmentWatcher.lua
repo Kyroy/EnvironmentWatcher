@@ -271,7 +271,9 @@ function EnvironmentWatcher:ShowWatcher(trackable, icon, unitName, timeRemaining
 			trackable.notificationItem[unitName]:FindChild("Icon"):SetSprite(icon)
 		end
 		trackable.notificationItem[unitName]:FindChild("Text"):SetText(unitName)
-		trackable.notificationItem[unitName]:FindChild("WatcherName"):SetText(trackable.printName)
+		if trackable.textShowWatcherName then
+			trackable.notificationItem[unitName]:FindChild("WatcherName"):SetText(trackable.printName)
+		end
 		self.wndNotification:ArrangeChildrenVert()
 	end
 	trackable.notificationItem[unitName]:Invoke()
@@ -355,6 +357,8 @@ function EnvironmentWatcher:LoadTrackable(t)
 	
 	optionForm:FindChild("TypeName"):SetText(t.name or "##ERROR##")
 	
+	optionForm:FindChild("WatcherNameCheckButton"):SetCheck(t.textShowWatcherName or false)
+	
 	optionForm:FindChild("ChatNameContainer"):FindChild("ChatName"):SetText(t.toChat or "")
 	optionForm:FindChild("ChatNameContainer"):FindChild("IdCheckButton"):SetCheck(t.chatShowId)
 	
@@ -394,6 +398,9 @@ function EnvironmentWatcher:OnAddWatcherButton( wndHandler, wndControl, eMouseBu
 		iconX = 100,
 		iconY = 100,
 		--]]
+		-- Text
+		textShowWatcherName = false,
+		--
 		nextNotification = {},
 		showNotificationItem = true,
 		notificationItem = {}
@@ -597,6 +604,16 @@ function EnvironmentWatcher:OnIdChanged( wndHandler, wndControl, strText )
 		self.wndSelectedListItem:GetData().trackId = strText
 	end
 
+end
+
+function EnvironmentWatcher:WatcherNameCheckButtonCheck( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
+	self.wndSelectedListItem:GetData().textShowWatcherName = true
+end
+
+function EnvironmentWatcher:WatcherNameCheckButtonUncheck( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
+	self.wndSelectedListItem:GetData().textShowWatcherName = false
 end
 
 -----------------------------------------------------------------------------------------------
