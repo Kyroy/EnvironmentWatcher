@@ -195,7 +195,7 @@ function EnvironmentWatcher:OnTimer()
 				if trackTable then
 					for k, v in pairs(trackTable) do
 						if v.showNotificationItem then
-							self:ShowWatcher(v,unitName,buff.fTimeRemaining,buff.splEffect:GetIcon())
+							self:ShowWatcher(v,buff.splEffect:GetIcon(),unitName,buff.fTimeRemaining,buff.nCount)
 						end
 						if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
 							if v.toChat then
@@ -219,7 +219,7 @@ function EnvironmentWatcher:OnTimer()
 				if trackTable then
 					for k, v in pairs(trackTable) do
 						if v.showNotificationItem then
-							self:ShowWatcher(v,unitName,debuff.fTimeRemaining,debuff.splEffect:GetIcon())
+							self:ShowWatcher(v,debuff.splEffect:GetIcon(),unitName,debuff.fTimeRemaining,debuff.nCount)
 						end
 						if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
 							if v.toChat then
@@ -246,7 +246,7 @@ function EnvironmentWatcher:OnTimer()
 			if trackTable then
 				for k, v in pairs(trackTable) do
 					if v.showNotificationItem then
-						self:ShowWatcher(v,unitName,unit:GetCastElapsed(),nil)
+						self:ShowWatcher(v,nil,unitName,unit:GetCastElapsed(),nil)
 					end
 					if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
 						if v.toChat then
@@ -263,7 +263,7 @@ function EnvironmentWatcher:OnTimer()
 	end
 end
 
-function EnvironmentWatcher:ShowWatcher(trackable, unitName, timeRemaining, icon)
+function EnvironmentWatcher:ShowWatcher(trackable, icon, unitName, timeRemaining, stacks)
 	if not trackable.notificationItem[unitName] then
 		trackable.notificationItem[unitName] = Apollo.LoadForm(self.xmlDoc, "NotificationItem", self.wndNotification, self)
 		trackable.notificationItem[unitName]:FindChild("Icon"):FindChild("ProgressBar"):SetMax(timeRemaining)
@@ -271,11 +271,15 @@ function EnvironmentWatcher:ShowWatcher(trackable, unitName, timeRemaining, icon
 			trackable.notificationItem[unitName]:FindChild("Icon"):SetSprite(icon)
 		end
 		trackable.notificationItem[unitName]:FindChild("Text"):SetText(unitName)
+		trackable.notificationItem[unitName]:FindChild("WatcherName"):SetText(trackable.printName)
 		self.wndNotification:ArrangeChildrenVert()
 	end
 	trackable.notificationItem[unitName]:Invoke()
 	trackable.notificationItem[unitName]:FindChild("Icon"):FindChild("ProgressBar"):SetProgress(timeRemaining)
 	trackable.notificationItem[unitName]:FindChild("Icon"):FindChild("IconText"):SetText(tonumber(string.format("%.0f", timeRemaining)))
+	if stacks and stacks > 1 then
+		trackable.notificationItem[unitName]:FindChild("Icon"):FindChild("IconStacks"):SetText(stacks)
+	end
 	trackable.notificationItem[unitName]:SetData(os.clock())
 end
 
