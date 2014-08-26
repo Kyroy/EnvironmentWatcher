@@ -194,21 +194,23 @@ function EnvironmentWatcher:OnTimer()
 				local trackTable = self.trackedBuffs[buff.splEffect:GetName()]
 				if trackTable then
 					for k, v in pairs(trackTable) do
-						if v.showNotificationItem then
-							self:ShowWatcher(v,buff.splEffect:GetIcon(),unitName,buff.fTimeRemaining,buff.nCount)
-						end
-						if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
-							if v.toChat then
-								local addMsg = ""
-								if v.chatShowId then
-									addMsg = " (id=" .. buff.splEffect:GetBaseSpellId() .. ")"
+						if not v.trackId or v.trackId == buff.splEffect:GetBaseSpellId() then
+							if v.showNotificationItem then
+								self:ShowWatcher(v,buff.splEffect:GetIcon(),unitName,buff.fTimeRemaining,buff.nCount)
+							end
+							if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
+								if v.toChat then
+									local addMsg = ""
+									if v.chatShowId then
+										addMsg = " (id=" .. buff.splEffect:GetBaseSpellId() .. ")"
+									end
+									self:SendChatMessage(v, unitName .. " has buff " .. v.name .. addMsg)
 								end
-								self:SendChatMessage(v, unitName .. " has buff " .. v.name .. addMsg)
+								if v.sound and v.sound ~= "none" then
+									Sound.Play(v.sound)
+								end
+								v.nextNotification[unitName] = os.clock() + buff.fTimeRemaining + 1.0
 							end
-							if v.sound and v.sound ~= "none" then
-								Sound.Play(v.sound)
-							end
-							v.nextNotification[unitName] = os.clock() + buff.fTimeRemaining + 1.0
 						end
 					end
 				end
@@ -218,21 +220,23 @@ function EnvironmentWatcher:OnTimer()
 				local trackTable = self.trackedDebuffs[debuff.splEffect:GetName()]
 				if trackTable then
 					for k, v in pairs(trackTable) do
-						if v.showNotificationItem then
-							self:ShowWatcher(v,debuff.splEffect:GetIcon(),unitName,debuff.fTimeRemaining,debuff.nCount)
-						end
-						if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
-							if v.toChat then
-								local addMsg = ""
-								if v.chatShowId then
-									addMsg = " (id=" .. debuff.splEffect:GetBaseSpellId() .. ")"
+						if not v.trackId or v.trackId == buff.splEffect:GetBaseSpellId() then
+							if v.showNotificationItem then
+								self:ShowWatcher(v,debuff.splEffect:GetIcon(),unitName,debuff.fTimeRemaining,debuff.nCount)
+							end
+							if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
+								if v.toChat then
+									local addMsg = ""
+									if v.chatShowId then
+										addMsg = " (id=" .. debuff.splEffect:GetBaseSpellId() .. ")"
+									end
+									self:SendChatMessage(v, unitName .. " has debuff " .. v.name .. addMsg)
 								end
-								self:SendChatMessage(v, unitName .. " has debuff " .. v.name .. addMsg)
+								if v.sound and v.sound ~= "none" then
+									Sound.Play(v.sound)
+								end
+								v.nextNotification[unitName] = os.clock() + debuff.fTimeRemaining + 1.0
 							end
-							if v.sound and v.sound ~= "none" then
-								Sound.Play(v.sound)
-							end
-							v.nextNotification[unitName] = os.clock() + debuff.fTimeRemaining + 1.0
 						end
 					end
 				end
