@@ -139,7 +139,9 @@ function EnvironmentWatcher:OnDocLoaded()
 		-- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
 		Apollo.RegisterSlashCommand("ew", "OnEnvironmentWatcherOn", self)
 
-		self.timer = ApolloTimer.Create(0.100, true, "OnTimer", self)
+		self.timer = {}
+		self.timer[1] = ApolloTimer.Create(0.100, true, "OnTimer", self)
+		self.timer[2] = ApolloTimer.Create(0.200, true, "ClearWatcher", self)
 
 		-- Do additional Addon initialization here
 		if self.saveData then
@@ -179,7 +181,6 @@ end
 -- on SlashCommand "/ew"
 function EnvironmentWatcher:OnEnvironmentWatcherOn()
 	self.wndMain:Invoke() -- show the window
-	--self.wndItemList:ArrangeChildrenVert()
 end
 
 -- on timer
@@ -193,25 +194,23 @@ function EnvironmentWatcher:OnTimer()
 				local trackTable = self.trackedBuffs[buff.splEffect:GetName()]
 				if trackTable then
 					for k, v in pairs(trackTable) do
-						if v.showNotificationItem then
-							if not v.notificationItem[unitName] then
-								v.notificationItem[unitName] = Apollo.LoadForm(self.xmlDoc, "NotificationItem", self.wndNotification, self)
-								v.notificationItem[unitName]:FindChild("Icon"):FindChild("ProgressBar"):SetMax(buff.fTimeRemaining)
-								v.notificationItem[unitName]:FindChild("Icon"):SetSprite(buff.splEffect:GetIcon())
-								v.notificationItem[unitName]:FindChild("Text"):SetText(unitName)
-								self.wndNotification:ArrangeChildrenVert()
+						if not v.trackId or v.trackId == buff.splEffect:GetBaseSpellId() then
+							if v.showNotificationItem then
+								self:ShowWatcher(v,buff.splEffect:GetIcon(),unitName,buff.fTimeRemaining,buff.nCount)
 							end
-							v.notificationItem[unitName]:FindChild("Icon"):FindChild("ProgressBar"):SetProgress(buff.fTimeRemaining)
-							v.notificationItem[unitName]:FindChild("Icon"):FindChild("IconText"):SetText(tonumber(string.format("%.0f", buff.fTimeRemaining)))
-						end
-						if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
-							if v.toChat then
-								self:SendChatMessage(v, unitName .. " has buff " .. v.name)
+							if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
+								if v.toChat then
+									local addMsg = ""
+									if v.chatShowId then
+										addMsg = " (id=" .. buff.splEffect:GetBaseSpellId() .. ")"
+									end
+									self:SendChatMessage(v, unitName .. " has buff " .. v.name .. addMsg)
+								end
+								if v.sound and v.sound ~= "none" then
+									Sound.Play(v.sound)
+								end
+								v.nextNotification[unitName] = os.clock() + buff.fTimeRemaining + 1.0
 							end
-							if v.sound and v.sound ~= "none" then
-								Sound.Play(v.sound)
-							end
-							v.nextNotification[unitName] = os.clock() + buff.fTimeRemaining + 1.0
 						end
 					end
 				end
@@ -221,25 +220,23 @@ function EnvironmentWatcher:OnTimer()
 				local trackTable = self.trackedDebuffs[debuff.splEffect:GetName()]
 				if trackTable then
 					for k, v in pairs(trackTable) do
-						if v.showNotificationItem then
-							if not v.notificationItem[unitName] then
-								v.notificationItem[unitName] = Apollo.LoadForm(self.xmlDoc, "NotificationItem", self.wndNotification, self)
-								v.notificationItem[unitName]:FindChild("Icon"):FindChild("ProgressBar"):SetMax(debuff.fTimeRemaining)
-								v.notificationItem[unitName]:FindChild("Icon"):SetSprite(debuff.splEffect:GetIcon())
-								v.notificationItem[unitName]:FindChild("Text"):SetText(unitName)
-								self.wndNotification:ArrangeChildrenVert()
+						if not v.trackId or v.trackId == debuff.splEffect:GetBaseSpellId() then
+							if v.showNotificationItem then
+								self:ShowWatcher(v,debuff.splEffect:GetIcon(),unitName,debuff.fTimeRemaining,debuff.nCount)
 							end
-							v.notificationItem[unitName]:FindChild("Icon"):FindChild("ProgressBar"):SetProgress(debuff.fTimeRemaining)
-							v.notificationItem[unitName]:FindChild("Icon"):FindChild("IconText"):SetText(tonumber(string.format("%.0f", debuff.fTimeRemaining)))
-						end
-						if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
-							if v.toChat then
-								self:SendChatMessage(v, unitName .. " has debuff " .. v.name)
+							if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
+								if v.toChat then
+									local addMsg = ""
+									if v.chatShowId then
+										addMsg = " (id=" .. debuff.splEffect:GetBaseSpellId() .. ")"
+									end
+									self:SendChatMessage(v, unitName .. " has debuff " .. v.name .. addMsg)
+								end
+								if v.sound and v.sound ~= "none" then
+									Sound.Play(v.sound)
+								end
+								v.nextNotification[unitName] = os.clock() + debuff.fTimeRemaining + 1.0
 							end
-							if v.sound and v.sound ~= "none" then
-								Sound.Play(v.sound)
-							end
-							v.nextNotification[unitName] = os.clock() + debuff.fTimeRemaining + 1.0
 						end
 					end
 				end
@@ -253,15 +250,7 @@ function EnvironmentWatcher:OnTimer()
 			if trackTable then
 				for k, v in pairs(trackTable) do
 					if v.showNotificationItem then
-						if not v.notificationItem[unitName] then
-							v.notificationItem[unitName] = Apollo.LoadForm(self.xmlDoc, "NotificationItem", self.wndNotification, self)
-							v.notificationItem[unitName]:FindChild("Icon"):FindChild("ProgressBar"):SetMax(castPercentage)
-							--v.notificationItem[unitName]:FindChild("Icon"):SetSprite(buff.splEffect:GetIcon())
-							v.notificationItem[unitName]:FindChild("Text"):SetText(unitName)
-							self.wndNotification:ArrangeChildrenVert()
-						end
-						v.notificationItem[unitName]:FindChild("Icon"):FindChild("ProgressBar"):SetProgress(unit:GetCastElapsed())
-						v.notificationItem[unitName]:FindChild("Icon"):FindChild("IconText"):SetText(tonumber(string.format("%.0f", unit:GetCastElapsed()/1000.0)))
+						self:ShowWatcher(v,nil,unitName,unit:GetCastElapsed(),nil)
 					end
 					if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
 						if v.toChat then
@@ -276,39 +265,42 @@ function EnvironmentWatcher:OnTimer()
 			end
 		end
 	end
-	-- clear workaround
-	self:ClearWatcher()
+end
+
+function EnvironmentWatcher:ShowWatcher(trackable, icon, unitName, timeRemaining, stacks)
+	local guiIcon = trackable.notificationItem[unitName]:FindChild("Icon")
+	if not trackable.notificationItem[unitName] then
+		trackable.notificationItem[unitName] = Apollo.LoadForm(self.xmlDoc, "NotificationItem", self.wndNotification, self)
+		guiIcon:FindChild("ProgressBar"):SetMax(timeRemaining)
+		if icon then
+			guiIcon:SetSprite(icon)
+		end
+		trackable.notificationItem[unitName]:FindChild("Text"):SetText(unitName)
+		if trackable.textShowWatcherName then
+			trackable.notificationItem[unitName]:FindChild("WatcherName"):SetText(trackable.printName)
+		end
+		self.wndNotification:ArrangeChildrenVert()
+	end
+	trackable.notificationItem[unitName]:Invoke()
+	guiIcon:FindChild("ProgressBar"):SetProgress(timeRemaining)
+	guiIcon:FindChild("IconText"):SetText(tonumber(string.format("%.0f", timeRemaining)))
+	if stacks then
+		if stacks > 1 then
+			guiIcon:FindChild("IconStacks"):SetText(stacks)
+		else
+			guiIcon:FindChild("IconStacks"):SetText("")
+		end
+	end
+	trackable.notificationItem[unitName]:SetData(os.clock())
 end
 
 function EnvironmentWatcher:ClearWatcher()
-	for _,v in pairs(self.trackedBuffs) do
-		for _,trackable in pairs(v) do
-			for k,noti in pairs(trackable.nextNotification) do
-				if trackable.notificationItem[k] and os.difftime(noti , os.clock()) <= 0 then
-					trackable.notificationItem[k]:Destroy()
-					trackable.notificationItem[k] = nil
-				end
-			end
-		end
-	end
-	for _,v in pairs(self.trackedDebuffs) do
-		for _,trackable in pairs(v) do
-			for k,noti in pairs(trackable.nextNotification) do
-				if trackable.notificationItem[k] and os.difftime(noti , os.clock()) <= 0 then
-					trackable.notificationItem[k]:Destroy()
-					trackable.notificationItem[k] = nil
-				end
-			end
-		end
-	end
-	for _,v in pairs(self.trackedCasts) do
-		for _,trackable in pairs(v) do
-			for k,noti in pairs(trackable.nextNotification) do
-				if trackable.notificationItem[k] and os.difftime(noti , os.clock()) <= 0 then
-					trackable.notificationItem[k]:Destroy()
-					trackable.notificationItem[k] = nil
-				end
-			end
+	local time = os.clock()
+	--Print("Checking Closing for #items: " .. #self.wndNotification:GetChildren())
+	for k,v in pairs(self.wndNotification:GetChildren()) do
+		local lastUpdated = v:GetData()
+		if os.difftime(time, lastUpdated) > 0.5 then
+			v:Close()
 		end
 	end
 	self.wndNotification:ArrangeChildrenVert()
@@ -373,8 +365,12 @@ function EnvironmentWatcher:LoadTrackable(t)
 	optionForm:FindChild("CastCheckButton"):SetCheck(t.type == trackableType["Cast"])
 	
 	optionForm:FindChild("TypeName"):SetText(t.name or "##ERROR##")
+	optionForm:FindChild("IdContainer"):FindChild("IdName"):SetText(t.trackId or "")
+	
+	optionForm:FindChild("WatcherNameCheckButton"):SetCheck(t.textShowWatcherName or false)
 	
 	optionForm:FindChild("ChatNameContainer"):FindChild("ChatName"):SetText(t.toChat or "")
+	optionForm:FindChild("ChatNameContainer"):FindChild("IdCheckButton"):SetCheck(t.chatShowId)
 	
 	for k,v in pairs(optionForm:FindChild("SoundContainer"):FindChild("SoundChooser"):GetChildren()) do
 		if v:GetText() == (soundsLookup[t.sound] or "none" )then
@@ -394,17 +390,25 @@ function EnvironmentWatcher:OnAddWatcherButton( wndHandler, wndControl, eMouseBu
 		printName = "",
 		type = trackableType["Buff"],
 		name = "",
+		trackId = nil,
+		-- Chat
 		toChat = "",
+		chatShowId = false,
+		--
 		timeShow = false,
 		-- Sound
 		sound = "none",
-		soundPlay = false,
 		-- Icon
+		--[[
 		icon = icons[1],
 		iconSize = 1.0,
 		iconShow = false,
 		iconX = 100,
 		iconY = 100,
+		--]]
+		-- Text
+		textShowWatcherName = false,
+		--
 		nextNotification = {},
 		showNotificationItem = true,
 		notificationItem = {}
@@ -514,11 +518,11 @@ function EnvironmentWatcher:OnBuffChecked( wndHandler, wndControl, eMouseButton 
 	if not self.wndSelectedListItem then return end
 	local trackable = self.wndSelectedListItem:GetData()
 	local relTable
-	if trackable .type == trackableType["Buff"] then
+	if trackable.type == trackableType["Buff"] then
 		relTable = self.trackedBuffs
-	elseif trackable .type == trackableType["Debuff"] then
+	elseif trackable.type == trackableType["Debuff"] then
 		relTable = self.trackedDebuffs
-	elseif trackable .type == trackableType["Cast"] then
+	elseif trackable.type == trackableType["Cast"] then
 		relTable = self.trackedCasts
 	else
 		Print("Error 1 in OnNameChanged: This shoud not happen.")
@@ -538,11 +542,11 @@ function EnvironmentWatcher:OnDebuffChecked( wndHandler, wndControl, eMouseButto
 	if not self.wndSelectedListItem then return end
 	local trackable = self.wndSelectedListItem:GetData()
 	local relTable
-	if trackable .type == trackableType["Buff"] then
+	if trackable.type == trackableType["Buff"] then
 		relTable = self.trackedBuffs
-	elseif trackable .type == trackableType["Debuff"] then
+	elseif trackable.type == trackableType["Debuff"] then
 		relTable = self.trackedDebuffs
-	elseif trackable .type == trackableType["Cast"] then
+	elseif trackable.type == trackableType["Cast"] then
 		relTable = self.trackedCasts
 	else
 		Print("Error 1 in OnNameChanged: This shoud not happen.")
@@ -562,11 +566,11 @@ function EnvironmentWatcher:OnCastChecked( wndHandler, wndControl, eMouseButton 
 	if not self.wndSelectedListItem then return end
 	local trackable = self.wndSelectedListItem:GetData()
 	local relTable
-	if trackable .type == trackableType["Buff"] then
+	if trackable.type == trackableType["Buff"] then
 		relTable = self.trackedBuffs
-	elseif trackable .type == trackableType["Debuff"] then
+	elseif trackable.type == trackableType["Debuff"] then
 		relTable = self.trackedDebuffs
-	elseif trackable .type == trackableType["Cast"] then
+	elseif trackable.type == trackableType["Cast"] then
 		relTable = self.trackedCasts
 	else
 		Print("Error 1 in OnNameChanged: This shoud not happen.")
@@ -588,6 +592,41 @@ end
 
 function EnvironmentWatcher:OnMoveMatchersUncheck( wndHandler, wndControl, eMouseButton )
 	self.wndMoveWatchers:Close()
+end
+
+function EnvironmentWatcher:OnIdCheckButtonCheck( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
+	self.wndSelectedListItem:GetData().chatShowId = true
+end
+
+function EnvironmentWatcher:OnIdCheckButtonUncheck( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
+	self.wndSelectedListItem:GetData().chatShowId = false
+end
+
+function EnvironmentWatcher:OnIdChanged( wndHandler, wndControl, strText )
+	if not self.wndSelectedListItem then return end
+	if strText == "" then
+		self.wndSelectedListItem:GetData().trackId = nil
+	else
+		local nText = tonumber(strText)
+		if nText then
+			self.wndSelectedListItem:GetData().trackId = nText
+		else
+			self.wndMain:FindChild("OptionForm"):FindChild("IdContainer"):FindChild("IdName"):SetText(self.wndSelectedListItem:GetData().trackId or "")
+		end
+	end
+
+end
+
+function EnvironmentWatcher:WatcherNameCheckButtonCheck( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
+	self.wndSelectedListItem:GetData().textShowWatcherName = true
+end
+
+function EnvironmentWatcher:WatcherNameCheckButtonUncheck( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
+	self.wndSelectedListItem:GetData().textShowWatcherName = false
 end
 
 -----------------------------------------------------------------------------------------------
@@ -613,7 +652,7 @@ function EnvironmentWatcher:OnListItemSelected(wndHandler, wndControl)
 	wndItemText = self.wndSelectedListItem:FindChild("Text")
     wndItemText:SetTextColor(kcrSelectedText)
     
-	Print( "item " ..  self.wndSelectedListItem:GetData().printName .. " is selected.")
+	--Print( "item " ..  self.wndSelectedListItem:GetData().printName .. " is selected.")
 	self:LoadTrackable(self.wndSelectedListItem:GetData())
 end
 
