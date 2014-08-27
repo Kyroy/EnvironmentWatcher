@@ -268,9 +268,10 @@ function EnvironmentWatcher:OnTimer()
 end
 
 function EnvironmentWatcher:ShowWatcher(trackable, icon, unitName, timeRemaining, stacks)
-	local guiIcon = trackable.notificationItem[unitName]:FindChild("Icon")
+	local guiIcon
 	if not trackable.notificationItem[unitName] then
 		trackable.notificationItem[unitName] = Apollo.LoadForm(self.xmlDoc, "NotificationItem", self.wndNotification, self)
+		guiIcon = trackable.notificationItem[unitName]:FindChild("Icon")
 		guiIcon:FindChild("ProgressBar"):SetMax(timeRemaining)
 		if icon then
 			guiIcon:SetSprite(icon)
@@ -281,6 +282,7 @@ function EnvironmentWatcher:ShowWatcher(trackable, icon, unitName, timeRemaining
 		end
 		self.wndNotification:ArrangeChildrenVert()
 	end
+	guiIcon = trackable.notificationItem[unitName]:FindChild("Icon")
 	trackable.notificationItem[unitName]:Invoke()
 	guiIcon:FindChild("ProgressBar"):SetProgress(timeRemaining)
 	guiIcon:FindChild("IconText"):SetText(tonumber(string.format("%.0f", timeRemaining)))
@@ -480,6 +482,10 @@ function EnvironmentWatcher:OnPrintNameChanged( wndHandler, wndControl, strText 
 	if not self.wndSelectedListItem then return end
 	self.wndSelectedListItem:FindChild("Text"):SetText(strText)
 	self.wndSelectedListItem:GetData().printName = strText
+	
+	for k,v in pairs(self.wndSelectedListItem:GetData().notificationItem) do
+		v:FindChild("WatcherName"):SetText(strText)
+	end
 end
 
 function EnvironmentWatcher:OnNameChanged( wndHandler, wndControl, strText )
