@@ -220,7 +220,7 @@ function EnvironmentWatcher:OnTimer()
 				local trackTable = self.trackedDebuffs[debuff.splEffect:GetName()]
 				if trackTable then
 					for k, v in pairs(trackTable) do
-						if not v.trackId or v.trackId == buff.splEffect:GetBaseSpellId() then
+						if not v.trackId or v.trackId == debuff.splEffect:GetBaseSpellId() then
 							if v.showNotificationItem then
 								self:ShowWatcher(v,debuff.splEffect:GetIcon(),unitName,debuff.fTimeRemaining,debuff.nCount)
 							end
@@ -268,11 +268,12 @@ function EnvironmentWatcher:OnTimer()
 end
 
 function EnvironmentWatcher:ShowWatcher(trackable, icon, unitName, timeRemaining, stacks)
+	local guiIcon = trackable.notificationItem[unitName]:FindChild("Icon")
 	if not trackable.notificationItem[unitName] then
 		trackable.notificationItem[unitName] = Apollo.LoadForm(self.xmlDoc, "NotificationItem", self.wndNotification, self)
-		trackable.notificationItem[unitName]:FindChild("Icon"):FindChild("ProgressBar"):SetMax(timeRemaining)
+		guiIcon:FindChild("ProgressBar"):SetMax(timeRemaining)
 		if icon then
-			trackable.notificationItem[unitName]:FindChild("Icon"):SetSprite(icon)
+			guiIcon:SetSprite(icon)
 		end
 		trackable.notificationItem[unitName]:FindChild("Text"):SetText(unitName)
 		if trackable.textShowWatcherName then
@@ -281,10 +282,14 @@ function EnvironmentWatcher:ShowWatcher(trackable, icon, unitName, timeRemaining
 		self.wndNotification:ArrangeChildrenVert()
 	end
 	trackable.notificationItem[unitName]:Invoke()
-	trackable.notificationItem[unitName]:FindChild("Icon"):FindChild("ProgressBar"):SetProgress(timeRemaining)
-	trackable.notificationItem[unitName]:FindChild("Icon"):FindChild("IconText"):SetText(tonumber(string.format("%.0f", timeRemaining)))
-	if stacks and stacks > 1 then
-		trackable.notificationItem[unitName]:FindChild("Icon"):FindChild("IconStacks"):SetText(stacks)
+	guiIcon:FindChild("ProgressBar"):SetProgress(timeRemaining)
+	guiIcon:FindChild("IconText"):SetText(tonumber(string.format("%.0f", timeRemaining)))
+	if stacks then
+		if stacks > 1 then
+			guiIcon:FindChild("IconStacks"):SetText(stacks)
+		else
+			guiIcon:FindChild("IconStacks"):SetText("")
+		end
 	end
 	trackable.notificationItem[unitName]:SetData(os.clock())
 end
@@ -360,6 +365,7 @@ function EnvironmentWatcher:LoadTrackable(t)
 	optionForm:FindChild("CastCheckButton"):SetCheck(t.type == trackableType["Cast"])
 	
 	optionForm:FindChild("TypeName"):SetText(t.name or "##ERROR##")
+	optionForm:FindChild("IdContainer"):FindChild("IdName"):SetText(t.trackId or "")
 	
 	optionForm:FindChild("WatcherNameCheckButton"):SetCheck(t.textShowWatcherName or false)
 	
@@ -373,8 +379,6 @@ function EnvironmentWatcher:LoadTrackable(t)
 			v:SetTextColor(kcrNormalText)
 		end
 	end
-	
-	optionForm:FindChild("IdContainer"):FindChild("IdName"):SetText(t.trackId or "")
 end
 
 function EnvironmentWatcher:OnCloseButton()
@@ -514,11 +518,11 @@ function EnvironmentWatcher:OnBuffChecked( wndHandler, wndControl, eMouseButton 
 	if not self.wndSelectedListItem then return end
 	local trackable = self.wndSelectedListItem:GetData()
 	local relTable
-	if trackable .type == trackableType["Buff"] then
+	if trackable.type == trackableType["Buff"] then
 		relTable = self.trackedBuffs
-	elseif trackable .type == trackableType["Debuff"] then
+	elseif trackable.type == trackableType["Debuff"] then
 		relTable = self.trackedDebuffs
-	elseif trackable .type == trackableType["Cast"] then
+	elseif trackable.type == trackableType["Cast"] then
 		relTable = self.trackedCasts
 	else
 		Print("Error 1 in OnNameChanged: This shoud not happen.")
@@ -538,11 +542,11 @@ function EnvironmentWatcher:OnDebuffChecked( wndHandler, wndControl, eMouseButto
 	if not self.wndSelectedListItem then return end
 	local trackable = self.wndSelectedListItem:GetData()
 	local relTable
-	if trackable .type == trackableType["Buff"] then
+	if trackable.type == trackableType["Buff"] then
 		relTable = self.trackedBuffs
-	elseif trackable .type == trackableType["Debuff"] then
+	elseif trackable.type == trackableType["Debuff"] then
 		relTable = self.trackedDebuffs
-	elseif trackable .type == trackableType["Cast"] then
+	elseif trackable.type == trackableType["Cast"] then
 		relTable = self.trackedCasts
 	else
 		Print("Error 1 in OnNameChanged: This shoud not happen.")
@@ -562,11 +566,11 @@ function EnvironmentWatcher:OnCastChecked( wndHandler, wndControl, eMouseButton 
 	if not self.wndSelectedListItem then return end
 	local trackable = self.wndSelectedListItem:GetData()
 	local relTable
-	if trackable .type == trackableType["Buff"] then
+	if trackable.type == trackableType["Buff"] then
 		relTable = self.trackedBuffs
-	elseif trackable .type == trackableType["Debuff"] then
+	elseif trackable.type == trackableType["Debuff"] then
 		relTable = self.trackedDebuffs
-	elseif trackable .type == trackableType["Cast"] then
+	elseif trackable.type == trackableType["Cast"] then
 		relTable = self.trackedCasts
 	else
 		Print("Error 1 in OnNameChanged: This shoud not happen.")
@@ -605,7 +609,12 @@ function EnvironmentWatcher:OnIdChanged( wndHandler, wndControl, strText )
 	if strText == "" then
 		self.wndSelectedListItem:GetData().trackId = nil
 	else
-		self.wndSelectedListItem:GetData().trackId = strText
+		local nText = tonumber(strText)
+		if nText then
+			self.wndSelectedListItem:GetData().trackId = nText
+		else
+			self.wndMain:FindChild("OptionForm"):FindChild("IdContainer"):FindChild("IdName"):SetText(self.wndSelectedListItem:GetData().trackId or "")
+		end
 	end
 
 end
