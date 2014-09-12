@@ -55,10 +55,6 @@ local soundsLookup = {
 	[Sound.PlayUIQueuePopsDungeon] = "PlayUIQueuePopsDungeon",
 	[Sound.PlayUIWindowPublicEventVoteVotingEnd] = "PlayUIWindowPublicEventVoteVotingEnd"
 }
-
-local icons = {
-	"kA"
-}
  
 -----------------------------------------------------------------------------------------------
 -- Initialization
@@ -91,19 +87,12 @@ function EnvironmentWatcher:Init()
     Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
  
-
------------------------------------------------------------------------------------------------
--- EnvironmentWatcher OnLoad
------------------------------------------------------------------------------------------------
 function EnvironmentWatcher:OnLoad()
     -- load our form file
 	self.xmlDoc = XmlDoc.CreateFromFile("EnvironmentWatcher.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
 end
 
------------------------------------------------------------------------------------------------
--- EnvironmentWatcher OnDocLoaded
------------------------------------------------------------------------------------------------
 function EnvironmentWatcher:OnDocLoaded()
 
 	if self.xmlDoc ~= nil and self.xmlDoc:IsLoaded() then
@@ -187,7 +176,9 @@ function EnvironmentWatcher:OnEnvironmentWatcherOn()
 	self.wndMain:Invoke() -- show the window
 end
 
--- on timer
+-----------------------------------------------------------------------------------------------
+-- Watcher Functionality
+-----------------------------------------------------------------------------------------------
 function EnvironmentWatcher:OnTimer()
 	for id1, unit in pairs(self.watched) do
 		local unitName = unit:GetName()
@@ -274,6 +265,31 @@ function EnvironmentWatcher:OnTimer()
 	end
 end
 
+function EnvironmentWatcher:SendChatMessage(trackable, message)
+	if chats[trackable.toChat] == ChatSystemLib.ChatChannel_Debug then
+		ChatSystemLib.PostOnChannel(chats[trackable.toChat], message, "")
+	else
+		for idx, channel in pairs(ChatSystemLib.GetChannels()) do
+			if channel:GetType() == chats[trackable.toChat] then
+				channel:Send(message)
+				break
+			end
+		end
+	end
+
+end
+
+function EnvironmentWatcher:OnUnitCreated(unit)
+	self.watched[unit:GetId()] = unit
+end
+
+function EnvironmentWatcher:OnUnitDestroyed(unit)
+	self.watched[unit:GetId()] = nil
+end
+
+-----------------------------------------------------------------------------------------------
+-- EnvironmentWatcher GUI
+-----------------------------------------------------------------------------------------------
 function EnvironmentWatcher:ShowWatcher(trackable, icon, unitName, timeRemaining, stacks)
 	local guiIcon
 	if not trackable.notificationItem[unitName] then
@@ -315,38 +331,6 @@ function EnvironmentWatcher:ClearWatcher()
 	self.wndNotification:ArrangeChildrenVert()
 end
 
-function EnvironmentWatcher:SendChatMessage(trackable, message)
-	if chats[trackable.toChat] == ChatSystemLib.ChatChannel_Debug then
-		ChatSystemLib.PostOnChannel(chats[trackable.toChat], message, "")
-	else
-		for idx, channel in pairs(ChatSystemLib.GetChannels()) do
-			if channel:GetType() == chats[trackable.toChat] then
-				channel:Send(message)
-				break
-			end
-		end
-	end
-
-end
-
-function EnvironmentWatcher:OnUnitCreated(unit)
-	self.watched[unit:GetId()] = unit
-end
-
-function EnvironmentWatcher:OnUnitDestroyed(unit)
-	self.watched[unit:GetId()] = nil
-end
-
-function EnvironmentWatcher:OnEnteredCombat(unitChanged,bInCombat)
-	if bInCombat then
-		--Print("OnEnteredCombat(".. unitChanged:GetName() ..", true)")
-		self.watched[unitChanged:GetId()] = unitChanged
-	else
-		--Print("OnEnteredCombat(".. unitChanged:GetName() ..", false)")
-		self.watched[unitChanged:GetId()] = nil
-	end
-end
-
 function EnvironmentWatcher:AddTracked(table, trackable)
 	local buffTable = table[trackable.name]
 	if not buffTable then
@@ -370,9 +354,28 @@ function EnvironmentWatcher:RemoveTracked(table, trackable)
 	end
 end
 
------------------------------------------------------------------------------------------------
--- EnvironmentWatcherForm Functions
------------------------------------------------------------------------------------------------
+function EnvironmentWatcher:OnListItemSelected(wndHandler, wndControl)
+    -- make sure the wndControl is valid
+    if wndHandler ~= wndControl then
+        return
+    end
+    
+    -- change the old item's text color back to normal color
+    local wndItemText
+    if self.wndSelectedListItem ~= nil then
+        wndItemText = self.wndSelectedListItem:FindChild("Text")
+        wndItemText:SetTextColor(kcrNormalText)
+    end
+    
+	-- wndControl is the item selected - change its color to selected
+	self.wndSelectedListItem = wndControl
+	wndItemText = self.wndSelectedListItem:FindChild("Text")
+    wndItemText:SetTextColor(kcrSelectedText)
+    
+	--Print( "item " ..  self.wndSelectedListItem:GetData().printName .. " is selected.")
+	self:LoadTrackable(self.wndSelectedListItem:GetData())
+end
+
 function EnvironmentWatcher:LoadTrackable(t)
 	local optionForm = self.wndMain:FindChild("OptionForm")
 	optionForm:FindChild("TrackableName"):SetText(t.printName or "##ERROR##")
@@ -481,6 +484,9 @@ function EnvironmentWatcher:OnRemoveWatcherButton( wndHandler, wndControl, eMous
 	end
 end
 
+-----------------------------------------------------------------------------------------------
+-- EnvironmentWatcherOptions
+-----------------------------------------------------------------------------------------------
 function EnvironmentWatcher:OnSoundChooserPressed( wndHandler, wndControl, eMouseButton, nLastRelativeMouseX, nLastRelativeMouseY )
 	if not self.wndSelectedListItem then return end
 	-- make sure the wndControl is valid
@@ -616,7 +622,7 @@ function EnvironmentWatcher:OnMoveWatchersCheck( wndHandler, wndControl, eMouseB
 	self.wndMoveWatchers:Invoke()
 end
 
-function EnvironmentWatcher:OnMoveMatchersUncheck( wndHandler, wndControl, eMouseButton )
+function EnvironmentWatcher:OnMoveWatchersUncheck( wndHandler, wndControl, eMouseButton )
 	self.wndMoveWatchers:Close()
 end
 
@@ -673,33 +679,6 @@ end
 function EnvironmentWatcher:OnTypeNPCUncheck( wndHandler, wndControl, eMouseButton )
 	if not self.wndSelectedListItem then return end
 	self.wndSelectedListItem:GetData().trackNPC = false
-end
-
------------------------------------------------------------------------------------------------
--- ItemList Functions
------------------------------------------------------------------------------------------------
-
--- when a list item is selected
-function EnvironmentWatcher:OnListItemSelected(wndHandler, wndControl)
-    -- make sure the wndControl is valid
-    if wndHandler ~= wndControl then
-        return
-    end
-    
-    -- change the old item's text color back to normal color
-    local wndItemText
-    if self.wndSelectedListItem ~= nil then
-        wndItemText = self.wndSelectedListItem:FindChild("Text")
-        wndItemText:SetTextColor(kcrNormalText)
-    end
-    
-	-- wndControl is the item selected - change its color to selected
-	self.wndSelectedListItem = wndControl
-	wndItemText = self.wndSelectedListItem:FindChild("Text")
-    wndItemText:SetTextColor(kcrSelectedText)
-    
-	--Print( "item " ..  self.wndSelectedListItem:GetData().printName .. " is selected.")
-	self:LoadTrackable(self.wndSelectedListItem:GetData())
 end
 
 -----------------------------------------------------------------------------------------------
