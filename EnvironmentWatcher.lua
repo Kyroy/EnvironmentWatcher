@@ -135,7 +135,8 @@ function EnvironmentWatcher:OnDocLoaded()
 		-- self.xmlDoc = nil
 		
 		-- Register handlers for events, slash commands and timer, etc.
-		Apollo.RegisterEventHandler("UnitEnteredCombat", "OnEnteredCombat", self)
+		--Apollo.RegisterEventHandler("UnitEnteredCombat", "OnEnteredCombat", self) --old Version
+		Apollo.RegisterEventHandler("UnitCreated", "OnUnitCreated", self)
 		-- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
 		Apollo.RegisterSlashCommand("ew", "OnEnvironmentWatcherOn", self)
 
@@ -170,6 +171,9 @@ function EnvironmentWatcher:OnDocLoaded()
 				self.wndNotification:SetAnchorOffsets(unpack(self.settings.anchorOffsets))
 			end
 		end
+		
+		-- Watch yourself (not tracked via UnitCreated)
+		self:OnUnitCreated(GameLib.GetPlayerUnit())
 	end
 end
 
@@ -187,6 +191,7 @@ end
 function EnvironmentWatcher:OnTimer()
 	for id1, unit in pairs(self.watched) do
 		local unitName = unit:GetName()
+		local isPlayer = unit:IsACharacter()
 		local buffs = unit:GetBuffs()
 		if buffs then
 			-- Buffs
@@ -194,7 +199,7 @@ function EnvironmentWatcher:OnTimer()
 				local trackTable = self.trackedBuffs[buff.splEffect:GetName()]
 				if trackTable then
 					for k, v in pairs(trackTable) do
-						if not v.trackId or v.trackId == buff.splEffect:GetBaseSpellId() then
+						if (v.trackPlayer == isPlayer or v.trackNPC == not isPlayer) and (not v.trackId or v.trackId == buff.splEffect:GetBaseSpellId()) then
 							if v.showNotificationItem then
 								self:ShowWatcher(v,buff.splEffect:GetIcon(),unitName,buff.fTimeRemaining,buff.nCount)
 							end
@@ -220,7 +225,7 @@ function EnvironmentWatcher:OnTimer()
 				local trackTable = self.trackedDebuffs[debuff.splEffect:GetName()]
 				if trackTable then
 					for k, v in pairs(trackTable) do
-						if not v.trackId or v.trackId == debuff.splEffect:GetBaseSpellId() then
+						if (v.trackPlayer == isPlayer or v.trackNPC == not isPlayer) and (not v.trackId or v.trackId == debuff.splEffect:GetBaseSpellId()) then
 							if v.showNotificationItem then
 								self:ShowWatcher(v,debuff.splEffect:GetIcon(),unitName,debuff.fTimeRemaining,debuff.nCount)
 							end
@@ -249,17 +254,19 @@ function EnvironmentWatcher:OnTimer()
 			local trackTable = self.trackedCasts[unit:GetCastName()]
 			if trackTable then
 				for k, v in pairs(trackTable) do
-					if v.showNotificationItem then
-						self:ShowWatcher(v,nil,unitName,unit:GetCastElapsed(),nil)
-					end
-					if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
-						if v.toChat then
-							self:SendChatMessage(v, unitName .. " is casting " .. v.name)
+					if (v.trackPlayer == isPlayer or v.trackNPC == not isPlayer) then
+						if v.showNotificationItem then
+							self:ShowWatcher(v,nil,unitName,unit:GetCastElapsed(),nil)
 						end
-						if v.sound and v.sound ~= "none" then
-							Sound.Play(v.sound)
+						if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
+							if v.toChat then
+								self:SendChatMessage(v, unitName .. " is casting " .. v.name)
+							end
+							if v.sound and v.sound ~= "none" then
+								Sound.Play(v.sound)
+							end
+							v.nextNotification[unitName] = os.clock() + (unit:GetCastDuration())/1000.0 + 1.0
 						end
-						v.nextNotification[unitName] = os.clock() + (unit:GetCastDuration())/1000.0 + 1.0
 					end
 				end
 			end
@@ -322,6 +329,14 @@ function EnvironmentWatcher:SendChatMessage(trackable, message)
 
 end
 
+function EnvironmentWatcher:OnUnitCreated(unit)
+	self.watched[unit:GetId()] = unit
+end
+
+function EnvironmentWatcher:OnUnitDestroyed(unit)
+	self.watched[unit:GetId()] = nil
+end
+
 function EnvironmentWatcher:OnEnteredCombat(unitChanged,bInCombat)
 	if bInCombat then
 		--Print("OnEnteredCombat(".. unitChanged:GetName() ..", true)")
@@ -369,7 +384,10 @@ function EnvironmentWatcher:LoadTrackable(t)
 	optionForm:FindChild("TypeName"):SetText(t.name or "##ERROR##")
 	optionForm:FindChild("IdContainer"):FindChild("IdName"):SetText(t.trackId or "")
 	
-	optionForm:FindChild("WatcherNameCheckButton"):SetCheck(t.textShowWatcherName or false)
+	optionForm:FindChild("UnitTypeContainer"):FindChild("TypePlayerCheckButton"):SetCheck(t.trackPlayer or true)
+	optionForm:FindChild("UnitTypeContainer"):FindChild("TypeNPCCheckButton"):SetCheck(t.trackNPC)
+	
+	optionForm:FindChild("WatcherNameCheckButton"):SetCheck(t.textShowWatcherName)
 	
 	optionForm:FindChild("ChatNameContainer"):FindChild("ChatName"):SetText(t.toChat or "")
 	optionForm:FindChild("ChatNameContainer"):FindChild("IdCheckButton"):SetCheck(t.chatShowId)
@@ -393,6 +411,8 @@ function EnvironmentWatcher:OnAddWatcherButton( wndHandler, wndControl, eMouseBu
 		type = trackableType["Buff"],
 		name = "",
 		trackId = nil,
+		trackPlayer = true,
+		trackNPC = false,
 		-- Chat
 		toChat = "",
 		chatShowId = false,
@@ -633,6 +653,26 @@ end
 function EnvironmentWatcher:WatcherNameCheckButtonUncheck( wndHandler, wndControl, eMouseButton )
 	if not self.wndSelectedListItem then return end
 	self.wndSelectedListItem:GetData().textShowWatcherName = false
+end
+
+function EnvironmentWatcher:OnTypePlayerCheck( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
+	self.wndSelectedListItem:GetData().trackPlayer = true
+end
+
+function EnvironmentWatcher:OnTypePlayerUncheck( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
+	self.wndSelectedListItem:GetData().trackPlayer = false
+end
+
+function EnvironmentWatcher:OnTypeNPCCheck( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
+	self.wndSelectedListItem:GetData().trackNPC = true
+end
+
+function EnvironmentWatcher:OnTypeNPCUncheck( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
+	self.wndSelectedListItem:GetData().trackNPC = false
 end
 
 -----------------------------------------------------------------------------------------------
