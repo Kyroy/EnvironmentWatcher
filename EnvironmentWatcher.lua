@@ -409,7 +409,7 @@ function EnvironmentWatcher:LoadTrackable(t)
 	optionForm:FindChild("TypeName"):SetText(t.name or "##ERROR##")
 	optionForm:FindChild("IdContainer"):FindChild("IdName"):SetText(t.trackId or "")
 	
-	optionForm:FindChild("UnitTypeContainer"):FindChild("TypePlayerCheckButton"):SetCheck(t.trackPlayer or true)
+	optionForm:FindChild("UnitTypeContainer"):FindChild("TypePlayerCheckButton"):SetCheck(t.trackPlayer)
 	optionForm:FindChild("UnitTypeContainer"):FindChild("TypeNPCCheckButton"):SetCheck(t.trackNPC)
 	
 	optionForm:FindChild("WatcherNameCheckButton"):SetCheck(t.textShowWatcherName)
