@@ -200,7 +200,12 @@ function EnvironmentWatcher:OnTimer()
 									if v.chatShowId then
 										addMsg = " (id=" .. buff.splEffect:GetBaseSpellId() .. ")"
 									end
-									self:SendChatMessage(v, unitName .. " has buff " .. v.name .. addMsg)
+									if v.chatOptionalText then
+										addMsg = unitName .. " " .. v.chatOptionalText .. addMsg
+									else
+										addMsg = unitName .. " has buff " .. v.name .. addMsg
+									end
+									self:SendChatMessage(v, addMsg)
 								end
 								if v.sound and v.sound ~= "none" then
 									Sound.Play(v.sound)
@@ -393,6 +398,7 @@ function EnvironmentWatcher:LoadTrackable(t)
 	optionForm:FindChild("WatcherNameCheckButton"):SetCheck(t.textShowWatcherName)
 	
 	optionForm:FindChild("ChatNameContainer"):FindChild("ChatName"):SetText(t.toChat or "")
+	optionForm:FindChild("ChatNameContainer"):FindChild("OptionalChatText"):SetText(t.chatOptionalText or "")
 	optionForm:FindChild("ChatNameContainer"):FindChild("IdCheckButton"):SetCheck(t.chatShowId)
 	
 	for k,v in pairs(optionForm:FindChild("SoundContainer"):FindChild("SoundChooser"):GetChildren()) do
@@ -418,6 +424,7 @@ function EnvironmentWatcher:OnAddWatcherButton( wndHandler, wndControl, eMouseBu
 		trackNPC = false,
 		-- Chat
 		toChat = "",
+		chatOptionalText = nil,
 		chatShowId = false,
 		--
 		timeShow = false,
@@ -679,6 +686,15 @@ end
 function EnvironmentWatcher:OnTypeNPCUncheck( wndHandler, wndControl, eMouseButton )
 	if not self.wndSelectedListItem then return end
 	self.wndSelectedListItem:GetData().trackNPC = false
+end
+
+function EnvironmentWatcher:OnOptionalChatTextChanged( wndHandler, wndControl, strText )
+	if not self.wndSelectedListItem then return end
+	if strText and strText ~= "" then
+		self.wndSelectedListItem:GetData().chatOptionalText = strText
+	else
+		self.wndSelectedListItem:GetData().chatOptionalText = nil
+	end
 end
 
 -----------------------------------------------------------------------------------------------
