@@ -33,6 +33,10 @@ local chats = {
 	["z"] = ChatSystemLib.ChatChannel_Zone,
 	["t"] = ChatSystemLib.ChatChannel_Trade
 }
+local chatTexts = {
+	" hat buff ", " has debuff ", " is casting "
+}
+
 local sounds = {
 	["PlayUIWindowAuctionHouseOpen"] = Sound.PlayUIWindowAuctionHouseOpen,
 	--["PlayUIStoryPaneUrgent"] = Sound.PlayUIStoryPaneUrgent,
@@ -231,7 +235,12 @@ function EnvironmentWatcher:OnTimer()
 									if v.chatShowId then
 										addMsg = " (id=" .. debuff.splEffect:GetBaseSpellId() .. ")"
 									end
-									self:SendChatMessage(v, unitName .. " has debuff " .. v.name .. addMsg)
+									if v.chatOptionalText then
+										addMsg = unitName .. " " .. v.chatOptionalText .. addMsg
+									else
+										addMsg = unitName .. " has debuff " .. v.name .. addMsg
+									end
+									self:SendChatMessage(v, addMsg)
 								end
 								if v.sound and v.sound ~= "none" then
 									Sound.Play(v.sound)
@@ -256,7 +265,13 @@ function EnvironmentWatcher:OnTimer()
 						end
 						if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
 							if v.toChat then
-								self:SendChatMessage(v, unitName .. " is casting " .. v.name)
+								local addMsg = ""
+								if v.chatOptionalText then
+									addMsg = unitName .. " " .. v.chatOptionalText .. addMsg
+								else
+									addMsg = unitName .. " is casting " .. v.name .. addMsg
+								end
+								self:SendChatMessage(v, addMsg)
 							end
 							if v.sound and v.sound ~= "none" then
 								Sound.Play(v.sound)
@@ -728,6 +743,21 @@ end
 function EnvironmentWatcher:OnMoveWatchers( wndHandler, wndControl, nOldLeft, nOldTop, nOldRight, nOldBottom )
 	self.settings.anchorOffsets = {self.wndMoveWatchers:GetAnchorOffsets()}
 	self.wndNotification:SetAnchorOffsets(unpack(self.settings.anchorOffsets))
+end
+
+-----------------------------------------------------------------------------------------------
+-- EnvironmentWatcher Helpers
+-----------------------------------------------------------------------------------------------
+function EnvironmentWatcher:TableMerge(t1,t2)
+	local t = {}
+	for k,v in pairs(t1) do
+		table.insert(t,v)
+	end
+	for k,v in pairs(t2) do
+		table.insert(t,v)
+	end
+	
+	return t
 end
 
 -----------------------------------------------------------------------------------------------
