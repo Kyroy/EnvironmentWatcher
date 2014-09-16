@@ -300,7 +300,9 @@ function EnvironmentWatcher:SendChatMessage(trackable, message)
 end
 
 function EnvironmentWatcher:OnUnitCreated(unit)
-	self.watched[unit:GetId()] = unit
+	if unit then
+		self.watched[unit:GetId()] = unit
+	end
 end
 
 function EnvironmentWatcher:OnUnitDestroyed(unit)
