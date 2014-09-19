@@ -74,6 +74,7 @@ function EnvironmentWatcher:new(o)
 	o.trackedDebuffs = {}
 	o.trackedCasts = {}
 	o.watched = {}
+	o.watchedCombat = {}
 	o.settings = {
 		anchorOffsets = nil
 	}
@@ -128,7 +129,7 @@ function EnvironmentWatcher:OnDocLoaded()
 		-- self.xmlDoc = nil
 		
 		-- Register handlers for events, slash commands and timer, etc.
-		--Apollo.RegisterEventHandler("UnitEnteredCombat", "OnEnteredCombat", self) --old Version
+		Apollo.RegisterEventHandler("UnitEnteredCombat", "OnEnteredCombat", self)
 		Apollo.RegisterEventHandler("UnitCreated", "OnUnitCreated", self)
 		-- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
 		Apollo.RegisterSlashCommand("ew", "OnEnvironmentWatcherOn", self)
@@ -176,15 +177,29 @@ end
 -- Define general functions here
 
 -- on SlashCommand "/ew"
-function EnvironmentWatcher:OnEnvironmentWatcherOn()
-	self.wndMain:Invoke() -- show the window
+function EnvironmentWatcher:OnEnvironmentWatcherOn(cmd, args)
+	if args:lower() == "debug" then
+		self:OnEnvironmentWatcherDebug()
+	else
+		self.wndMain:Invoke() -- show the window
+	end
+end
+
+function EnvironmentWatcher:OnEnvironmentWatcherDebug()
+	Print("Printing watched units:")
+	local i = 0
+	for k,v in pairs(self.watched) do
+		i = i+1
+		Print(i .. ": " .. k .. " -- " .. v:GetName())
+	end
 end
 
 -----------------------------------------------------------------------------------------------
 -- Watcher Functionality
 -----------------------------------------------------------------------------------------------
 function EnvironmentWatcher:OnTimer()
-	for id1, unit in pairs(self.watched) do
+	local watchedUnits = self:TableMergeUniqueId(self.watched, self.watchedCombat)
+	for unitId, unit in pairs(watchedUnits) do
 		local unitName = unit:GetName()
 		local isPlayer = unit:IsACharacter()
 		local buffs = unit:GetBuffs()
@@ -198,7 +213,7 @@ function EnvironmentWatcher:OnTimer()
 							if v.showNotificationItem then
 								self:ShowWatcher(v,buff.splEffect:GetIcon(),unitName,buff.fTimeRemaining,buff.nCount)
 							end
-							if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
+							if not v.nextNotification[unitId] or os.difftime(v.nextNotification[unitId] , os.clock()) <= 0 then
 								if v.toChat then
 									local addMsg = ""
 									if v.chatShowId then
@@ -214,7 +229,7 @@ function EnvironmentWatcher:OnTimer()
 								if v.sound and v.sound ~= "none" then
 									Sound.Play(v.sound)
 								end
-								v.nextNotification[unitName] = os.clock() + buff.fTimeRemaining + 1.0
+								v.nextNotification[unitId] = os.clock() + buff.fTimeRemaining + 1.0
 							end
 						end
 					end
@@ -229,7 +244,7 @@ function EnvironmentWatcher:OnTimer()
 							if v.showNotificationItem then
 								self:ShowWatcher(v,debuff.splEffect:GetIcon(),unitName,debuff.fTimeRemaining,debuff.nCount)
 							end
-							if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
+							if not v.nextNotification[unitId] or os.difftime(v.nextNotification[unitId] , os.clock()) <= 0 then
 								if v.toChat then
 									local addMsg = ""
 									if v.chatShowId then
@@ -245,7 +260,7 @@ function EnvironmentWatcher:OnTimer()
 								if v.sound and v.sound ~= "none" then
 									Sound.Play(v.sound)
 								end
-								v.nextNotification[unitName] = os.clock() + debuff.fTimeRemaining + 1.0
+								v.nextNotification[unitId] = os.clock() + debuff.fTimeRemaining + 1.0
 							end
 						end
 					end
@@ -263,7 +278,7 @@ function EnvironmentWatcher:OnTimer()
 						if v.showNotificationItem then
 							self:ShowWatcher(v,nil,unitName,unit:GetCastElapsed(),nil)
 						end
-						if not v.nextNotification[unitName] or os.difftime(v.nextNotification[unitName] , os.clock()) <= 0 then
+						if not v.nextNotification[unitId] or os.difftime(v.nextNotification[unitId] , os.clock()) <= 0 then
 							if v.toChat then
 								local addMsg = ""
 								if v.chatOptionalText then
@@ -276,7 +291,7 @@ function EnvironmentWatcher:OnTimer()
 							if v.sound and v.sound ~= "none" then
 								Sound.Play(v.sound)
 							end
-							v.nextNotification[unitName] = os.clock() + (unit:GetCastDuration())/1000.0 + 1.0
+							v.nextNotification[unitId] = os.clock() + (unit:GetCastDuration())/1000.0 + 1.0
 						end
 					end
 				end
@@ -296,12 +311,17 @@ function EnvironmentWatcher:SendChatMessage(trackable, message)
 			end
 		end
 	end
-
 end
 
 function EnvironmentWatcher:OnUnitCreated(unit)
 	if unit then
 		self.watched[unit:GetId()] = unit
+	end
+end
+
+function EnvironmentWatcher:OnEnteredCombat(unit)
+	if unit then
+		self.watchedCombat[unit:GetId()] = unit
 	end
 end
 
@@ -757,6 +777,20 @@ function EnvironmentWatcher:TableMerge(t1,t2)
 	end
 	for k,v in pairs(t2) do
 		table.insert(t,v)
+	end
+	
+	return t
+end
+
+function EnvironmentWatcher:TableMergeUniqueId(t1,t2)
+	local t = {}
+	for k,v in pairs(t1) do
+		t[k] = v
+	end
+	for k,v in pairs(t2) do
+		if not t[k] then
+			t[k] = v
+		end
 	end
 	
 	return t
