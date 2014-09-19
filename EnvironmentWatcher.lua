@@ -6,6 +6,7 @@
 require "Window"
 require "Sound"
 require "ChatSystemLib"
+require "Vector3"
  
 -----------------------------------------------------------------------------------------------
 -- EnvironmentWatcher Module Definition
@@ -73,6 +74,7 @@ function EnvironmentWatcher:new(o)
 	o.trackedBuffs = {}
 	o.trackedDebuffs = {}
 	o.trackedCasts = {}
+	o.trackables = {}
 	o.watched = {}
 	o.watchedCombat = {}
 	o.settings = {
@@ -108,22 +110,19 @@ function EnvironmentWatcher:OnDocLoaded()
 		end
 		
 		self.wndNotification = Apollo.LoadForm(self.xmlDoc, "NotificationForm", nil, self)
-		if self.wndNotification == nil then
-			Apollo.AddAddonErrorText(self, "Could not load the notification window for some reason.")
-			return
-		end
+		self.wndNotification:Show(true, true)
 		
 		self.wndMoveWatchers = Apollo.LoadForm(self.xmlDoc, "NotificationMoveForm", nil, self)
-		if self.wndMoveWatchers == nil then
-			Apollo.AddAddonErrorText(self, "Could not load the move-watchers window for some reason.")
-			return
-		end
+		self.wndMoveWatchers:Show(false, true)
+		
+		self.Overlay = Apollo.LoadForm(self.xmlDoc, "Overlay", "InWorldHudStratum", self)--FixedHudStratum
+    	self.Overlay:Show(true, true)
 		
 		-- item list
 		self.wndItemList = self.wndMain:FindChild("ItemList")
-	    self.wndMain:Show(false, true)
-		self.wndNotification:Show(true, true)
-		self.wndMoveWatchers:Show(false, true)
+	    
+		
+		
 
 		-- if the xmlDoc is no longer needed, you should set it to nil
 		-- self.xmlDoc = nil
@@ -131,12 +130,15 @@ function EnvironmentWatcher:OnDocLoaded()
 		-- Register handlers for events, slash commands and timer, etc.
 		Apollo.RegisterEventHandler("UnitEnteredCombat", "OnEnteredCombat", self)
 		Apollo.RegisterEventHandler("UnitCreated", "OnUnitCreated", self)
+		Apollo.RegisterEventHandler("NextFrame", "OnNextFrame", self)
 		-- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
 		Apollo.RegisterSlashCommand("ew", "OnEnvironmentWatcherOn", self)
 
-		self.timer = {}
-		self.timer[1] = ApolloTimer.Create(0.100, true, "OnTimer", self)
-		self.timer[2] = ApolloTimer.Create(0.200, true, "ClearWatcher", self)
+		self.timer = {
+			ApolloTimer.Create(0.100, true, "OnTimer", self),
+			--ApolloTimer.Create(0.01, true, "OnFastTimer", self),
+			ApolloTimer.Create(0.200, true, "ClearWatcher", self)
+		}
 
 		-- Do additional Addon initialization here
 		if self.saveData then
@@ -144,18 +146,22 @@ function EnvironmentWatcher:OnDocLoaded()
 				for _,trackable in pairs(v) do
 					self:ItemListAddWatcher(trackable)
 					self:AddTracked(self.trackedBuffs, trackable)
+					table.insert(self.trackables, trackable)
 				end
 			end
 			for _,v in pairs(self.saveData.trackedDebuffs) do
 				for _,trackable in pairs(v) do
+					trackable.lines = {}
 					self:ItemListAddWatcher(trackable)
 					self:AddTracked(self.trackedDebuffs, trackable)
+					table.insert(self.trackables, trackable)
 				end
 			end
 			for _,v in pairs(self.saveData.trackedCasts) do
 				for _,trackable in pairs(v) do
 					self:ItemListAddWatcher(trackable)
 					self:AddTracked(self.trackedCasts, trackable)
+					table.insert(self.trackables, trackable)
 				end
 			end
 	
@@ -182,7 +188,7 @@ function EnvironmentWatcher:OnEnvironmentWatcherOn(cmd, args)
 		self:OnEnvironmentWatcherDebug()
 	else
 		self.wndMain:Invoke() -- show the window
-	end
+	end	
 end
 
 function EnvironmentWatcher:OnEnvironmentWatcherDebug()
@@ -197,6 +203,56 @@ end
 -----------------------------------------------------------------------------------------------
 -- Watcher Functionality
 -----------------------------------------------------------------------------------------------
+function EnvironmentWatcher:DrawLine(pixieId, fromUnit, toUnit)
+	if not fromUnit or not toUnit then
+		return
+	end
+	
+
+	--local pPos = GameLib.GetUnitScreenPosition(fromUnit)
+	local lPos = GameLib.GetUnitScreenPosition(toUnit)
+	
+	local pixieLocPoints = { 0, 0, 0.5, 0.5 }
+	local xOffset = 0
+	local yOffset = 0
+	
+	if not pixieId then
+		-- Draw new Line
+	    return self.Overlay:AddPixie( {
+	            bLine = true, fWidth = 3, cr = "ffff0000",
+	            --loc = { fPoints = pixieLocPoints, nOffsets = { lPos.nX, lPos.nY, pPos.nX + xOffset, pPos.nY + yOffset } }
+				loc = { fPoints = pixieLocPoints, nOffsets = { lPos.nX, lPos.nY, 0, 0 } }
+	        } )
+	else
+		self.Overlay:UpdatePixie( pixieId, {
+				bLine = true, fWidth = 3, cr = "ffff0000",
+	            --loc = { nOffsets = { lPos.nX, lPos.nY, pPos.nX + xOffset, pPos.nY + yOffset } }
+				loc = { fPoints = pixieLocPoints, nOffsets = { lPos.nX, lPos.nY, 0, 0 } }
+	        } )
+		return pixieId
+	end
+end
+
+function EnvironmentWatcher:OnNextFrame()
+	-- Update all lines
+	--o.lines = {} -- {trackable, pixie, fromUnit, toUnit}
+	--local currentTime = os.clock()
+	for _, trackable in pairs(self.trackables) do
+		for _, line in pairs(trackable.lines) do
+			line.pixie = self:DrawLine(line.pixie, line.fromUnit, line.toUnit)
+		end
+	end
+end
+
+function EnvironmentWatcher:ShowLine(trackable, unit)
+	local player = GameLib.GetPlayerUnit()
+	if unit ~= player then
+		local unitId = unit:GetId()
+		--local pixieId = self:DrawLine(trackable.lines[unitId], player, unit)
+		trackable.lines[unitId] = {trackable = trackable, fromUnit = player, toUnit = unit}
+	end
+end
+
 function EnvironmentWatcher:OnTimer()
 	local watchedUnits = self:TableMergeUniqueId(self.watched, self.watchedCombat)
 	for unitId, unit in pairs(watchedUnits) do
@@ -211,7 +267,7 @@ function EnvironmentWatcher:OnTimer()
 					for k, v in pairs(trackTable) do
 						if (v.trackPlayer == isPlayer or v.trackNPC == not isPlayer) and (not v.trackId or v.trackId == buff.splEffect:GetBaseSpellId()) then
 							if v.showNotificationItem then
-								self:ShowWatcher(v,buff.splEffect:GetIcon(),unitName,buff.fTimeRemaining,buff.nCount)
+								self:ShowWatcher(v,buff.splEffect:GetIcon(),unit,buff.fTimeRemaining,buff.nCount)
 							end
 							if not v.nextNotification[unitId] or os.difftime(v.nextNotification[unitId] , os.clock()) <= 0 then
 								if v.toChat then
@@ -242,9 +298,12 @@ function EnvironmentWatcher:OnTimer()
 					for k, v in pairs(trackTable) do
 						if (v.trackPlayer == isPlayer or v.trackNPC == not isPlayer) and (not v.trackId or v.trackId == debuff.splEffect:GetBaseSpellId()) then
 							if v.showNotificationItem then
-								self:ShowWatcher(v,debuff.splEffect:GetIcon(),unitName,debuff.fTimeRemaining,debuff.nCount)
+								self:ShowWatcher(v,debuff.splEffect:GetIcon(),unit,debuff.fTimeRemaining,debuff.nCount)
 							end
 							if not v.nextNotification[unitId] or os.difftime(v.nextNotification[unitId] , os.clock()) <= 0 then
+								--if v.lineShow then
+									self:ShowLine(v, unit)
+								--end				
 								if v.toChat then
 									local addMsg = ""
 									if v.chatShowId then
@@ -276,7 +335,7 @@ function EnvironmentWatcher:OnTimer()
 				for k, v in pairs(trackTable) do
 					if (v.trackPlayer == isPlayer or v.trackNPC == not isPlayer) then
 						if v.showNotificationItem then
-							self:ShowWatcher(v,nil,unitName,unit:GetCastElapsed(),nil)
+							self:ShowWatcher(v,nil,unit,unit:GetCastElapsed(),nil)
 						end
 						if not v.nextNotification[unitId] or os.difftime(v.nextNotification[unitId] , os.clock()) <= 0 then
 							if v.toChat then
@@ -332,23 +391,25 @@ end
 -----------------------------------------------------------------------------------------------
 -- EnvironmentWatcher GUI
 -----------------------------------------------------------------------------------------------
-function EnvironmentWatcher:ShowWatcher(trackable, icon, unitName, timeRemaining, stacks)
+function EnvironmentWatcher:ShowWatcher(trackable, icon, unit, timeRemaining, stacks)
 	local guiIcon
-	if not trackable.notificationItem[unitName] then
-		trackable.notificationItem[unitName] = Apollo.LoadForm(self.xmlDoc, "NotificationItem", self.wndNotification, self)
-		guiIcon = trackable.notificationItem[unitName]:FindChild("Icon")
+	local unitId = unit:GetId()
+	local unitName = unit:GetName()
+	if not trackable.notificationItem[unitId] then
+		trackable.notificationItem[unitId] = Apollo.LoadForm(self.xmlDoc, "NotificationItem", self.wndNotification, self)
+		guiIcon = trackable.notificationItem[unitId]:FindChild("Icon")
 		guiIcon:FindChild("ProgressBar"):SetMax(timeRemaining)
 		if icon then
 			guiIcon:SetSprite(icon)
 		end
-		trackable.notificationItem[unitName]:FindChild("Text"):SetText(unitName)
+		trackable.notificationItem[unitId]:FindChild("Text"):SetText(unitName)
 		if trackable.textShowWatcherName then
-			trackable.notificationItem[unitName]:FindChild("WatcherName"):SetText(trackable.printName)
+			trackable.notificationItem[unitId]:FindChild("WatcherName"):SetText(trackable.printName)
 		end
 		self.wndNotification:ArrangeChildrenVert()
 	end
-	guiIcon = trackable.notificationItem[unitName]:FindChild("Icon")
-	trackable.notificationItem[unitName]:Invoke()
+	guiIcon = trackable.notificationItem[unitId]:FindChild("Icon")
+	trackable.notificationItem[unitId]:Invoke()
 	guiIcon:FindChild("ProgressBar"):SetProgress(timeRemaining)
 	guiIcon:FindChild("IconText"):SetText(tonumber(string.format("%.0f", timeRemaining)))
 	if stacks then
@@ -358,16 +419,18 @@ function EnvironmentWatcher:ShowWatcher(trackable, icon, unitName, timeRemaining
 			guiIcon:FindChild("IconStacks"):SetText("")
 		end
 	end
-	trackable.notificationItem[unitName]:SetData(os.clock())
+	trackable.notificationItem[unitId]:SetData({os.clock(),trackable, unitId})
 end
 
 function EnvironmentWatcher:ClearWatcher()
 	local time = os.clock()
 	--Print("Checking Closing for #items: " .. #self.wndNotification:GetChildren())
 	for k,v in pairs(self.wndNotification:GetChildren()) do
-		local lastUpdated = v:GetData()
+		local lastUpdated, trackable, unitId = unpack(v:GetData())
 		if os.difftime(time, lastUpdated) > 0.5 then
 			v:Close()
+			--self.Overlay:DestroyPixie(trackable.lines[unitId].pixie)
+			--trackable.lines[unitId] = nil
 		end
 	end
 	self.wndNotification:ArrangeChildrenVert()
@@ -467,6 +530,9 @@ function EnvironmentWatcher:OnAddWatcherButton( wndHandler, wndControl, eMouseBu
 		timeShow = false,
 		-- Sound
 		sound = "none",
+		-- Line
+		lines = {}, --[unitId] = {trackable, pixie, fromUnit, toUnit}
+		lineShow = false,
 		-- Icon
 		--[[
 		icon = icons[1],
@@ -484,6 +550,7 @@ function EnvironmentWatcher:OnAddWatcherButton( wndHandler, wndControl, eMouseBu
 	}
 	
 	-- selected to normal
+	table.insert(self.trackables, newTrackable)
 	self:ItemListAddWatcher(newTrackable)
 end
 
@@ -525,6 +592,12 @@ function EnvironmentWatcher:OnRemoveWatcherButton( wndHandler, wndControl, eMous
 		self:LoadTrackable(self.wndSelectedListItem:GetData())
 	else
 		self.wndSelectedListItem = nil
+	end
+	
+	for k,v in pairs(self.trackables) do
+		if v == delWnd then
+			table.remove(self.trackables, k)
+		end
 	end
 end
 
@@ -770,16 +843,15 @@ end
 -----------------------------------------------------------------------------------------------
 -- EnvironmentWatcher Helpers
 -----------------------------------------------------------------------------------------------
-function EnvironmentWatcher:TableMerge(t1,t2)
-	local t = {}
-	for k,v in pairs(t1) do
-		table.insert(t,v)
-	end
-	for k,v in pairs(t2) do
-		table.insert(t,v)
+function EnvironmentWatcher:TableMerge(tables)
+	local newTable = {}
+	for _, t in pairs(tables) do
+		for k,v in pairs(t) do
+			table.insert(newTable,v)
+		end
 	end
 	
-	return t
+	return newTable
 end
 
 function EnvironmentWatcher:TableMergeUniqueId(t1,t2)
