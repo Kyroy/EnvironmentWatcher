@@ -33,9 +33,6 @@ local chats = {
 	["z"] = ChatSystemLib.ChatChannel_Zone,
 	["t"] = ChatSystemLib.ChatChannel_Trade
 }
-local chatTexts = {
-	" hat buff ", " has debuff ", " is casting "
-}
 
 local sounds = {
 	["PlayUIWindowAuctionHouseOpen"] = Sound.PlayUIWindowAuctionHouseOpen,
@@ -239,6 +236,10 @@ function EnvironmentWatcher:OnTimer()
 								self:ShowWatcher(v,buff.splEffect:GetIcon(),unitName,buff.fTimeRemaining,buff.nCount)
 							end
 							if not v.nextNotification[unitId] or os.difftime(v.nextNotification[unitId] , os.clock()) <= 0 then
+								if v.targetMark then
+									unit:ClearTargetMarker()
+									unit:SetTargetMarker(v.targetMark)
+								end
 								if v.toChat then
 									local addMsg = ""
 									if v.chatShowId then
@@ -270,6 +271,10 @@ function EnvironmentWatcher:OnTimer()
 								self:ShowWatcher(v,debuff.splEffect:GetIcon(),unitName,debuff.fTimeRemaining,debuff.nCount)
 							end
 							if not v.nextNotification[unitId] or os.difftime(v.nextNotification[unitId] , os.clock()) <= 0 then
+								if v.targetMark then
+									unit:ClearTargetMarker()
+									unit:SetTargetMarker(v.targetMark)
+								end
 								if v.toChat then
 									local addMsg = ""
 									if v.chatShowId then
@@ -304,6 +309,10 @@ function EnvironmentWatcher:OnTimer()
 							self:ShowWatcher(v,nil,unitName,unit:GetCastElapsed(),nil)
 						end
 						if not v.nextNotification[unitId] or os.difftime(v.nextNotification[unitId] , os.clock()) <= 0 then
+							if v.targetMark then
+									unit:ClearTargetMarker()
+									unit:SetTargetMarker(v.targetMark)
+								end
 							if v.toChat then
 								local addMsg = ""
 								if v.chatOptionalText then
@@ -470,6 +479,10 @@ function EnvironmentWatcher:LoadTrackable(t)
 	optionForm:FindChild("ChatNameContainer"):FindChild("OptionalChatText"):SetText(t.chatOptionalText or "")
 	optionForm:FindChild("ChatNameContainer"):FindChild("IdCheckButton"):SetCheck(t.chatShowId)
 	
+	for k,v in pairs(optionForm:FindChild("TargetMarkContainer"):GetChildren()) do
+		v:SetCheck(tonumber(v:GetText()) == t.targetMark)
+	end
+	
 	for k,v in pairs(optionForm:FindChild("SoundContainer"):FindChild("SoundChooser"):GetChildren()) do
 		if v:GetText() == (soundsLookup[t.sound] or "none" )then
 			v:SetTextColor(kcrSelectedText)
@@ -495,8 +508,9 @@ function EnvironmentWatcher:OnAddWatcherButton( wndHandler, wndControl, eMouseBu
 		toChat = "",
 		chatOptionalText = nil,
 		chatShowId = false,
-		--
-		timeShow = false,
+		-- More
+		targetMark = 0,
+		--timeShow = false,
 		-- Sound
 		sound = "none",
 		-- Icon
@@ -763,6 +777,14 @@ function EnvironmentWatcher:OnOptionalChatTextChanged( wndHandler, wndControl, s
 		self.wndSelectedListItem:GetData().chatOptionalText = strText
 	else
 		self.wndSelectedListItem:GetData().chatOptionalText = nil
+	end
+end
+
+function EnvironmentWatcher:OnTargetMarkCheck( wndHandler, wndControl, eMouseButton )
+	if not self.wndSelectedListItem then return end
+	local num = tonumber(wndHandler:GetText())
+	if num then
+		self.wndSelectedListItem:GetData().targetMark = num
 	end
 end
 
