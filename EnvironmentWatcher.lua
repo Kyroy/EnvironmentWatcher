@@ -131,12 +131,14 @@ function EnvironmentWatcher:OnDocLoaded()
 		-- Register handlers for events, slash commands and timer, etc.
 		Apollo.RegisterEventHandler("UnitEnteredCombat", "OnEnteredCombat", self)
 		Apollo.RegisterEventHandler("UnitCreated", "OnUnitCreated", self)
+		Apollo.RegisterEventHandler("UnitDestroyed", "OnUnitDestroyed", self)
 		-- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
 		Apollo.RegisterSlashCommand("ew", "OnEnvironmentWatcherOn", self)
 
-		self.timer = {}
-		self.timer[1] = ApolloTimer.Create(0.100, true, "OnTimer", self)
-		self.timer[2] = ApolloTimer.Create(0.200, true, "ClearWatcher", self)
+		self.timer = {
+				ApolloTimer.Create(0.100, true, "OnTimer", self),
+				ApolloTimer.Create(0.200, true, "ClearWatcher", self)
+			}
 
 		-- Do additional Addon initialization here
 		if self.saveData then
@@ -180,8 +182,26 @@ end
 function EnvironmentWatcher:OnEnvironmentWatcherOn(cmd, args)
 	if args:lower() == "debug" then
 		self:OnEnvironmentWatcherDebug()
-	else
+	elseif args:lower() == "" then
 		self.wndMain:Invoke() -- show the window
+	else
+		local num = tonumber(args:lower())
+		if num then
+			local unit
+			if self.watched[num] then
+				unit = self.watched[num]
+			else
+				unit = self.watchedCombat[num]
+			end
+			
+			if unit then
+				Print("UnitInformation: " .. unit:GetName() ..
+						--" -- unit:GetMouseOverType(): " .. unit:GetMouseOverType() ..
+						" -- unit:IsValid(): " .. tostring(unit:IsValid()) ..
+						" -- unit:GetType(): " .. unit:GetType()
+					)
+			end
+		end
 	end
 end
 
@@ -189,6 +209,11 @@ function EnvironmentWatcher:OnEnvironmentWatcherDebug()
 	Print("Printing watched units:")
 	local i = 0
 	for k,v in pairs(self.watched) do
+		i = i+1
+		Print(i .. ": " .. k .. " -- " .. v:GetName())
+	end
+	Print("Printing watchedCombat units:")
+	for k,v in pairs(self.watchedCombat) do
 		i = i+1
 		Print(i .. ": " .. k .. " -- " .. v:GetName())
 	end
@@ -314,19 +339,26 @@ function EnvironmentWatcher:SendChatMessage(trackable, message)
 end
 
 function EnvironmentWatcher:OnUnitCreated(unit)
-	if unit then
-		self.watched[unit:GetId()] = unit
-	end
-end
-
-function EnvironmentWatcher:OnEnteredCombat(unit)
-	if unit then
-		self.watchedCombat[unit:GetId()] = unit
+	if unit and unit:GetMouseOverType() == "Normal" and unit:IsValid() then
+		local type = unit:GetType()
+		if type == "Player" or type == "NonPlayer" then 
+			self.watched[unit:GetId()] = unit
+		end
 	end
 end
 
 function EnvironmentWatcher:OnUnitDestroyed(unit)
 	self.watched[unit:GetId()] = nil
+end
+
+function EnvironmentWatcher:OnEnteredCombat(unitChanged,bInCombat)
+	if bInCombat then
+		--Print("OnEnteredCombat(".. unitChanged:GetName() ..", true)")
+		self.watchedCombat[unitChanged:GetId()] = unitChanged
+	else
+		--Print("OnEnteredCombat(".. unitChanged:GetName() ..", false)")
+		self.watchedCombat[unitChanged:GetId()] = nil
+	end
 end
 
 -----------------------------------------------------------------------------------------------
