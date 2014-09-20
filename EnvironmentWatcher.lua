@@ -134,7 +134,8 @@ function EnvironmentWatcher:OnDocLoaded()
 
 		self.timer = {
 				ApolloTimer.Create(0.100, true, "OnTimer", self),
-				ApolloTimer.Create(0.200, true, "ClearWatcher", self)
+				ApolloTimer.Create(0.200, true, "ClearWatcher", self),
+				ApolloTimer.Create(10.00, true, "ClearInvalidUnits", self)
 			}
 
 		-- Do additional Addon initialization here
@@ -367,6 +368,16 @@ function EnvironmentWatcher:OnEnteredCombat(unitChanged,bInCombat)
 	else
 		--Print("OnEnteredCombat(".. unitChanged:GetName() ..", false)")
 		self.watchedCombat[unitChanged:GetId()] = nil
+	end
+end
+
+function EnvironmentWatcher:ClearInvalidUnits()
+	for _, t in pairs({self.watched, self.watchedCombat}) do
+		for unitId, unit in pairs(t) do
+			if not unit:IsValid() then
+				t[unitId] = nil
+			end
+		end
 	end
 end
 
